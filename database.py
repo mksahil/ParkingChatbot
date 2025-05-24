@@ -21,7 +21,7 @@ class Booking(Base):
     __tablename__ = "bookings"
     id = Column(Integer, primary_key=True, index=True)
     spot_id = Column(Integer, index=True) # Foreign key to ParkingSpot
-    user_id = Column(String, index=True, default="default_user") # For simplicity, can be enhanced
+    user_id = Column(String, index=True, default="default_user") 
     vehicle_type = Column(String)
     location = Column(String)
     slot_type = Column(String)

@@ -1,10 +1,8 @@
 # app_ui.py
 
-import agent_logic # Assuming your project structure allows this import
-                                  # e.g. parking_agent_system is a package
-                                  # or files are in the same directory.
+import agent_logic 
 import json
-import milvus_utils # Assuming this is a utility for Milvus DB interactions
+import milvus_utils 
 import os
 os.environ["STREAMLIT_SERVER_ENABLE_FILE_WATCHER"] = "false"
 import torch
@@ -25,14 +23,11 @@ if "messages" not in st.session_state:
 # Display chat messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        # Try to pretty-print JSON if content looks like it
         content = message["content"]
         try:
-            # A simple check to see if it might be JSON (starts with { or [)
             if isinstance(content, str) and (content.strip().startswith("{") or content.strip().startswith("[")):
                 data = json.loads(content)
-                st.json(data) # Streamlit's JSON renderer
-            # Check for specific keywords that indicate structured data from tools
+                st.json(data) 
             elif "Found parking spots:" in content or "Booking successful! Details:" in content:
                 # Extract the JSON part
                 try:
@@ -41,11 +36,11 @@ for message in st.session_state.messages:
                     st.markdown(content.split(":", 1)[0] + ":") # Print the prefix
                     st.json(data)
                 except (IndexError, json.JSONDecodeError):
-                    st.markdown(content) # Fallback to markdown
+                    st.markdown(content)
             else:
                 st.markdown(content)
         except json.JSONDecodeError:
-            st.markdown(content) # Fallback if not valid JSON
+            st.markdown(content) 
 
 # User input
 if prompt := st.chat_input("What can I do for you? (e.g., 'Find parking for my car downtown')"):
@@ -59,10 +54,8 @@ if prompt := st.chat_input("What can I do for you? (e.g., 'Find parking for my c
         message_placeholder = st.empty()
         message_placeholder.markdown("Thinking...")
         try:
-            # Pass the current session's chat history to the agent
-            # The agent_logic needs to handle this format or convert it.
             assistant_response = agent_logic.process_user_query(prompt, st.session_state.messages)
-            message_placeholder.markdown(assistant_response) # Display final response
+            message_placeholder.markdown(assistant_response)
         except Exception as e:
             st.error(f"An error occurred: {e}")
             assistant_response = "Sorry, I encountered an internal error. Please try again."
@@ -72,7 +65,7 @@ if prompt := st.chat_input("What can I do for you? (e.g., 'Find parking for my c
     # Add assistant response to chat history
     st.session_state.messages.append({"role": "assistant", "content": assistant_response})
 
-# Sidebar for admin actions (optional)
+# Sidebar for admin actions
 with st.sidebar:
     st.header("Admin Panel")
     if st.button("Reset Parking Availability (Debug)"):

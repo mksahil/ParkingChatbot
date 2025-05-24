@@ -1,0 +1,11 @@
+fastapi 
+uvicorn 
+sqlalchemy 
+pymilvus 
+langchain 
+langchain_community 
+langchain_experimental 
+streamlit 
+python-dotenv 
+ollama 
+sentence-transformers

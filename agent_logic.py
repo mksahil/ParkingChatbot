@@ -3,36 +3,25 @@ import json
 import requests
 from datetime import datetime, timedelta
 from typing import Type, Dict, Any, List
-
 from langchain_community.llms import Ollama
-from langchain.agents import AgentExecutor, create_openai_tools_agent # Works with Ollama too
+from langchain.agents import AgentExecutor, create_openai_tools_agent 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools import BaseTool, tool
-from langchain_core.pydantic_v1 import BaseModel, Field # Use Langchain's Pydantic
+from langchain_core.pydantic_v1 import BaseModel, Field 
 from langchain.memory import ConversationBufferWindowMemory
-from langchain_community.chat_message_histories import ZepChatMessageHistory # Example, or build custom
-# For Milvus memory, we might need a custom Langchain memory class or a more direct integration.
-# Let's start with ConversationBufferWindowMemory and manually add Milvus context.
-
-import milvus_utils # Assuming milvus_utils.py is in the same directory or accessible
+from langchain_community.chat_message_histories import ZepChatMessageHistory 
+import milvus_utils 
 from langchain_openai import AzureChatOpenAI
 
 
 # --- Configuration ---
 LLM_MODEL = "llama3.2" # Ensure this model is pulled in Ollama
 FASTAPI_BASE_URL = "http://localhost:8000"
-USER_ID_FOR_MEMORY = "test_user_123" # In a real app, this would be dynamic
+USER_ID_FOR_MEMORY = "test_user_123"
 from langchain_community.chat_models import ChatOllama
 # --- Initialize LLM ---
-# llm = ChatOllama(model=LLM_MODEL, temperature=0.1)
+llm = ChatOllama(model=LLM_MODEL, temperature=0.1)
 
-llm = AzureChatOpenAI(
-                    azure_deployment="gpt-4o-mini",
-                    api_key="da151a3ed5194c77880111ff94c40d4b",
-                    model="gpt-4o-mini",
-                    api_version="2024-02-15-preview",
-                    azure_endpoint="https://icubeai.openai.azure.com/openai/deployments/gpt-4o-mini/chat/completions?api-version=2024-02-15-preview",
-                    temperature=0,)
 
 # --- Define Pydantic Schemas for Tool Inputs ---
 class ParkingSearchInput(BaseModel):
@@ -102,7 +91,9 @@ def book_parking_spot_tool(spot_id: int, vehicle_type: str, start_datetime_str: 
         "end_time": end_time.isoformat()
     }
     try:
+        print(f"Booking payload: {payload}") # For debugging    
         response = requests.post(f"{FASTAPI_BASE_URL}/book-parking", json=payload)
+        print(f"Booking response: {response.text}") # For debugging 
         response.raise_for_status()
         booking_details = response.json()
         return f"Booking successful! Details: {json.dumps(booking_details)}"
@@ -120,19 +111,6 @@ def book_parking_spot_tool(spot_id: int, vehicle_type: str, start_datetime_str: 
 
 tools = [search_parking_spots_tool, book_parking_spot_tool]
 
-# --- Agent Prompt ---
-# System prompt needs to guide the LLM to:
-# 1. Greet user.
-# 2. Understand intent (search, book).
-# 3. Extract parameters (vehicle_type, location, slot_type for search; spot_id, date/time for booking).
-# 4. If parameters are missing for the current intent, ask for them.
-# 5. Use retrieved Milvus memory to pre-fill or confirm info.
-# 6. Use tools when all necessary info for an action is gathered.
-# 7. For booking, clearly ask for date and time if not provided. Suggest current date if appropriate.
-
-# Constructing the prompt with memory awareness
-# This is a simplified way to inject memory. A more robust solution might involve
-# a custom memory class or modifying the agent's context.
 def get_agent_prompt_template(retrieved_memory_str: str = ""):
     memory_guidance = ""
     if retrieved_memory_str:
@@ -190,9 +168,8 @@ def get_agent_prompt_template(retrieved_memory_str: str = ""):
     ])
 
 # --- Agent and Memory ---
-# We'll manage chat history for the agent's context window and separately store to/retrieve from Milvus.
 # `ConversationBufferWindowMemory` is for the agent's short-term context.
-chat_history_for_agent = [] # Simple list for Langchain's expected format
+chat_history_for_agent = []
 
 # Main function to process user input
 def process_user_query(user_query: str, current_chat_history: List[Dict[str,str]]) -> str:
@@ -211,25 +188,16 @@ def process_user_query(user_query: str, current_chat_history: List[Dict[str,str]
     # 2. Retrieve relevant history from Milvus
     relevant_milvus_history = milvus_utils.retrieve_relevant_history(user_query, USER_ID_FOR_MEMORY, top_k=3)
     retrieved_memory_str = "\n".join([f"- {item['text']} (from a past conversation)" for item in relevant_milvus_history])
-    # print(f"Retrieved from Milvus: {retrieved_memory_str}") # For debugging
+
 
     # 3. Create/Update Agent
-    # The agent needs to be re-initialized with the latest prompt (containing Milvus memory)
-    # and the current conversation history for its own context window.
     prompt = get_agent_prompt_template(retrieved_memory_str)
-    agent = create_openai_tools_agent(llm, tools, prompt) # Works with Ollama that has OpenAI-compatible API
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True) # Add memory if needed
+    agent = create_openai_tools_agent(llm, tools, prompt) 
+    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
-    # Convert UI chat history to Langchain's format for the agent's direct memory (if using one)
-    # For now, we pass it as part of the `invoke` call.
-    # `chat_history_for_agent` should be a list of BaseMessage objects.
-    # This part needs careful handling of message types (HumanMessage, AIMessage).
-    # For simplicity, let's keep `chat_history_for_agent` minimal or rely on prompt context for now.
-
-    # Let's try to rebuild Langchain's expected chat_history format from our UI history
     from langchain_core.messages import HumanMessage, AIMessage
     langchain_formatted_history = []
-    for msg in current_chat_history: # current_chat_history from streamlit
+    for msg in current_chat_history: 
         if msg["role"] == "user":
             langchain_formatted_history.append(HumanMessage(content=msg["content"]))
         elif msg["role"] == "assistant":
@@ -239,7 +207,7 @@ def process_user_query(user_query: str, current_chat_history: List[Dict[str,str]
     # 4. Invoke Agent
     response = agent_executor.invoke({
         "input": user_query,
-        "chat_history": langchain_formatted_history # Pass the history here
+        "chat_history": langchain_formatted_history
     })
     assistant_response = response.get("output", "Sorry, I encountered an issue.")
 
