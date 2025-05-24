@@ -2,6 +2,12 @@
 
 This project implements an agentic AI system for searching and booking parking slots. Users can interact with the system via a conversational interface to find parking based on vehicle type, location, slot type, and duration. The system uses a Large Language Model (LLM) for natural language understanding and task execution, a vector database (Milvus) for conversational memory, and a FastAPI backend with SQLite for parking data management.
 
+## SnapShots
+![image](https://github.com/user-attachments/assets/3600311f-dab6-47e2-8f79-b13da1048247)
+
+![image](https://github.com/user-attachments/assets/07a65d19-029a-4cee-9b7b-ff6cb0086a3b)
+
+
 ## Features
 
 *   **Conversational AI:** Interact with an AI agent to find and book parking.
